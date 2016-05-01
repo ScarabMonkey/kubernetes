@@ -169,42 +169,44 @@ function kube-up {
 
 # Delete a kubernetes cluster
 function kube-down {
-	echo "TODO: kube-down" 1>&2
+  tear-down-master
+  for node in ${NODES}; do
+    tear-down-node ${node}
+  done
 }
 
-# Update a kubernetes cluster
-function kube-push {
-	echo "TODO: kube-push" 1>&2
+# Clean up on master
+function tear-down-master() {
+echo "[INFO] tear-down-master on ${MASTER}"
+  for service_name in etcd kube-apiserver kube-controller-manager kube-scheduler ; do
+      service_file="/usr/lib/systemd/system/${service_name}.service"
+      kube-ssh "$MASTER" " \
+        if [[ -f $service_file ]]; then \
+          sudo systemctl stop $service_name; \
+          sudo systemctl disable $service_name; \
+          sudo rm -f $service_file; \
+        fi"
+  done
+  kube-ssh "${MASTER}" "sudo rm -rf /opt/kubernetes"
+  kube-ssh "${MASTER}" "sudo rm -rf ${KUBE_TEMP}"
+  kube-ssh "${MASTER}" "sudo rm -rf /var/lib/etcd"
 }
 
-# Prepare update a kubernetes component
-function prepare-push {
-	echo "TODO: prepare-push" 1>&2
-}
-
-# Update a kubernetes master
-function push-master {
-	echo "TODO: push-master" 1>&2
-}
-
-# Update a kubernetes node
-function push-node {
-	echo "TODO: push-node" 1>&2
-}
-
-# Execute prior to running tests to build a release if required for env
-function test-build-release {
-	echo "TODO: test-build-release" 1>&2
-}
-
-# Execute prior to running tests to initialize required structure
-function test-setup {
-	echo "TODO: test-setup" 1>&2
-}
-
-# Execute after running tests to perform any required clean-up
-function test-teardown {
-	echo "TODO: test-teardown" 1>&2
+# Clean up on node
+function tear-down-node() {
+echo "[INFO] tear-down-node on $1"
+  for service_name in kube-proxy kubelet docker flannel ; do
+      service_file="/usr/lib/systemd/system/${service_name}.service"
+      kube-ssh "$1" " \
+        if [[ -f $service_file ]]; then \
+          sudo systemctl stop $service_name; \
+          sudo systemctl disable $service_name; \
+          sudo rm -f $service_file; \
+        fi"
+  done
+  kube-ssh "$1" "sudo rm -rf /run/flannel"
+  kube-ssh "$1" "sudo rm -rf /opt/kubernetes"
+  kube-ssh "$1" "sudo rm -rf ${KUBE_TEMP}"
 }
 
 # Create dirs that'll be used during setup on target machine.
